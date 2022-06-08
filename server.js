@@ -1,3 +1,4 @@
+const config = require('./config.json');
 const socketIo = require('socket.io');
 const pm2 = require('pm2');
 const os = require('os');
@@ -5,6 +6,7 @@ const ps = require('ps-node');
 const http = require('http');
 const osUtil = require('os-utils');
 const hostname = os.hostname();
+const disk = require('diskusage');
 const cpus = os.cpus()
     .length;
 const totalmemNum = os.totalmem();
@@ -110,17 +112,45 @@ function getCpuUsage() {
     });
 }
 
+function getDiskUsage(path) {
+    return new Promise(resolve => {
+        disk.check(path, (err, info) => {
+            resolve({
+                path: path,
+                free: info.free,
+                total: info.total,
+                freeStr: memoryString(info.free),
+                totalStr: memoryString(info.total),
+            });
+        });
+    });
+}
+
+function getDiskUsages(paths){
+    const pro = [];
+    for (let i = 0; i < paths.length; i++) {
+        pro.push(getDiskUsage(paths[i]));
+    }
+    return Promise.all(pro)
+}
+
 io.on('connection', socket => {
     console.log('websocket server connect!');
+    let diskPaths = [];
+    if (config && config.paths){
+        diskPaths = config.paths;
+    }
     const timer = setInterval(() => {
         Promise.all([
             pm2List(),
-            getCpuUsage()
+            getCpuUsage(),
+            getDiskUsages(diskPaths)
         ]).then(val => {
             const data = val[0];
             const totalData = {
                 hostname,
                 cpus,
+                diskUsage: [val[2]],
                 cpuUsage: `${val[1]}%`,
                 cpuUsageCls: val[1] >= cpuThreshold ? 'red' : '',
                 totalmem,
