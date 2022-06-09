@@ -150,7 +150,7 @@ io.on('connection', socket => {
             const totalData = {
                 hostname,
                 cpus,
-                diskUsage: [val[2]],
+                diskUsage: val[2],
                 cpuUsage: `${val[1]}%`,
                 cpuUsageCls: val[1] >= cpuThreshold ? 'red' : '',
                 totalmem,
